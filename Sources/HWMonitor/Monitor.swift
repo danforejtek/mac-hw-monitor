@@ -159,8 +159,9 @@ final class Monitor: ObservableObject {
         for (metric, seg) in segments { images[metric] = MenuBarImage.make([seg], graphs: graphs, labels: labels) }
         menuImages = images
         if d.bool(forKey: SettingsKey.menuCombined) {
-            let enabled = Metric.allCases.filter(\.enabled).compactMap { segments[$0] }
-            combinedImage = MenuBarImage.make(enabled, graphs: graphs, labels: labels)
+            var enabled = Metric.allCases.filter(\.enabled)
+            if enabled.isEmpty { enabled = [.cpu, .gpu, .memory, .network] }
+            combinedImage = MenuBarImage.make(enabled.compactMap { segments[$0] }, graphs: graphs, labels: labels)
         }
     }
 }

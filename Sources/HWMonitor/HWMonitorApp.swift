@@ -83,8 +83,10 @@ struct HWMonitorApp: App {
     }
 
     /// A per-metric item is inserted only when enabled and not in combined mode.
+    /// MenuBarExtra writes `false` back when it removes an item, so writes are ignored while
+    /// combined mode is on; otherwise switching modes would turn every metric off.
     private func separate(_ enabled: Binding<Bool>) -> Binding<Bool> {
-        Binding(get: { enabled.wrappedValue && !combined }, set: { enabled.wrappedValue = $0 })
+        Binding(get: { enabled.wrappedValue && !combined }, set: { if !combined { enabled.wrappedValue = $0 } })
     }
 
     @ViewBuilder
