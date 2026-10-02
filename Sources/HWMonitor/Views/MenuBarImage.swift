@@ -39,8 +39,10 @@ enum MenuBarImage {
 
     private static func textWidth(_ seg: Segment) -> CGFloat {
         if let value = seg.value {
-            return max((seg.title as NSString).size(withAttributes: [.font: titleFont]).width,
-                       (value as NSString).size(withAttributes: [.font: valueFont]).width).rounded(.up)
+            // Reserve room for two digits so the item doesn't jump between 9% and 10%.
+            let valueWidth = max((value as NSString).size(withAttributes: [.font: valueFont]).width,
+                                 ("00%" as NSString).size(withAttributes: [.font: valueFont]).width)
+            return max((seg.title as NSString).size(withAttributes: [.font: titleFont]).width, valueWidth).rounded(.up)
         }
         return (seg.lines.map { ($0 as NSString).size(withAttributes: [.font: smallFont]).width }.max() ?? 0).rounded(.up)
     }

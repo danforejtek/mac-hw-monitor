@@ -64,7 +64,9 @@ struct CPUDropdown: View {
     private func clusterRow(_ title: String, _ cores: [CoreLoad]) -> some View {
         let avg = cores.isEmpty ? 0 : cores.reduce(0) { $0 + $1.total } / Double(cores.count)
         return HStack(spacing: 10) {
+            // Fixed-width column so the labels of both cluster rows line up.
             CoreBars(cores: cores).frame(width: CGFloat(cores.count) * 9, height: 24)
+                .frame(width: 110, alignment: .leading)
             Text(title).font(.system(size: 13)).foregroundStyle(.secondary)
             Spacer()
             Text(Fmt.percent(avg)).font(.system(size: 13)).monospacedDigit()
@@ -274,23 +276,18 @@ struct NetworkDropdown: View {
 // MARK: - Combined
 
 /// Single-item mode: a metric picker on top, then that metric's regular dropdown.
+/// Every metric is listed, including ones hidden from the menu bar.
 struct CombinedDropdown: View {
     @ObservedObject var monitor: Monitor
     @AppStorage(SettingsKey.combinedMetric) private var selectedRaw = Metric.cpu.rawValue
+    @StateObject private var window = UIState<NSWindow?>(nil)
 
-    private var available: [Metric] {
-        let on = Metric.allCases.filter(\.enabled)
-        return on.isEmpty ? Metric.allCases : on
-    }
-    private var selected: Metric {
-        let m = Metric(rawValue: selectedRaw) ?? .cpu
-        return available.contains(m) ? m : available[0]
-    }
+    private var selected: Metric { Metric(rawValue: selectedRaw) ?? .cpu }
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Metric", selection: Binding(get: { selected.rawValue }, set: { selectedRaw = $0 })) {
-                ForEach(available) { m in Text(m.title).tag(m.rawValue) }
+            Picker("Metric", selection: $selectedRaw) {
+                ForEach(Metric.allCases) { m in Text(m.title).tag(m.rawValue) }
             }
             .pickerStyle(.segmented).labelsHidden()
             .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
@@ -303,5 +300,29 @@ struct CombinedDropdown: View {
             }
         }
         .frame(width: 400)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(WindowAccessor { window.value = $0 })
+        .background(GeometryReader { geo in
+            // The menu bar window keeps the size it opened with, so the content's natural
+            // height is measured here and the window is fitted to it.
+            Color.clear.preference(key: ContentHeightKey.self, value: geo.size.height)
+        })
+        .onPreferenceChange(ContentHeightKey.self) { h in DispatchQueue.main.async { fitWindow(to: h) } }
     }
+
+    private func fitWindow(to height: CGFloat) {
+        guard let w = window.value, height > 0 else { return }
+        let current = w.contentView?.frame.height ?? w.frame.height
+        guard abs(height - current) > 0.5 else { return }
+        var frame = w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 400, height: height))
+        frame.origin.x = w.frame.origin.x
+        frame.origin.y = w.frame.maxY - frame.height
+        w.setFrame(frame, display: true)
+    }
+}
+
+private struct ContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
