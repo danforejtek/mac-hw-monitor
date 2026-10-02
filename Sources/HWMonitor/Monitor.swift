@@ -35,6 +35,15 @@ final class Monitor: ObservableObject {
     func panelAppeared() { visiblePanels += 1; objectWillChange.send() }
     func panelDisappeared() { visiblePanels = max(0, visiblePanels - 1) }
 
+    /// Only one dropdown at a time: opening one closes the others, as iStat Menus does.
+    private var dropdownWindows: [Metric: NSWindow] = [:]
+    func dropdownOpened(_ metric: Metric, window: NSWindow) {
+        if dropdownWindows[metric] === window { return }
+        dropdownWindows[metric] = window
+        for (m, w) in dropdownWindows where m != metric && w.isVisible { w.close() }
+    }
+    func dropdownClosed(_ metric: Metric) { dropdownWindows[metric] = nil }
+
     private let cpuSampler = CPUSampler()
     private let gpuSampler = GPUSampler()
     private let memorySampler = MemorySampler()

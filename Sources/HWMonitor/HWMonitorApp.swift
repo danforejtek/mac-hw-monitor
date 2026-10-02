@@ -1,8 +1,16 @@
 import SwiftUI
 import ServiceManagement
 
+/// Keeps the app alive when its last window (a dropdown or the history window) closes.
+/// SwiftUI otherwise terminates an app that declares a `Window` scene once no window is open.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { false }
+}
+
 @main
 struct HWMonitorApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var monitor: Monitor
     @AppStorage(SettingsKey.showCPU) private var showCPU = true
     @AppStorage(SettingsKey.showGPU) private var showGPU = true

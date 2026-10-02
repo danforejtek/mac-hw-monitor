@@ -139,16 +139,31 @@ struct DropdownShell<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
+        // No ScrollView here: the menu bar window takes its height from the content's intrinsic
+        // size, and a ScrollView has none, which leaves the dropdown empty.
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 0) { content }
-            }
-            .frame(maxHeight: 740)
+            content
             DropdownFooter(monitor: monitor, metric: metric)
         }
         .frame(width: 400)
+        .background(WindowAccessor { window in
+            if let window { monitor.dropdownOpened(metric, window: window) }
+        })
         .onAppear { monitor.panelAppeared() }
-        .onDisappear { monitor.panelDisappeared() }
+        .onDisappear { monitor.panelDisappeared(); monitor.dropdownClosed(metric) }
+    }
+}
+
+/// Hands the hosting NSWindow to the caller once the view is in a window.
+struct WindowAccessor: NSViewRepresentable {
+    var onWindow: (NSWindow?) -> Void
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async { onWindow(v.window) }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { onWindow(nsView.window) }
     }
 }
 
