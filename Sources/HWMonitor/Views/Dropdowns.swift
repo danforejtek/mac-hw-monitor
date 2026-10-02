@@ -55,6 +55,7 @@ struct CPUDropdown: View {
                     legend(Palette.load15, cpu.loadAverage.2)
                 }
             }
+            HardwareSection(system: sys)
             DropdownSection(title: "Uptime") {
                 Text(uptimeText(sys.bootTime)).font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -108,6 +109,7 @@ struct GPUDropdown: View {
                     ValueRow(label: "Device", value: Fmt.percent(gpu.device), color: Palette.gpu)
                     ValueRow(label: "Renderer", value: Fmt.percent(gpu.renderer))
                     ValueRow(label: "Tiler", value: Fmt.percent(gpu.tiler))
+                    ValueRow(label: "Thermal state", value: monitor.snapshot.thermal == .nominal ? "Nominal" : "Throttling")
                 } else {
                     Text("No IOAccelerator statistics available.").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
@@ -119,11 +121,29 @@ struct GPUDropdown: View {
                 ValueRow(label: "Unified memory used", value: Fmt.bytes(monitor.snapshot.memory.used) + " / " + Fmt.bytes(monitor.system.totalMemory, decimals: 0), dim: true)
             }
             OllamaSection(monitor: monitor)
-            DropdownSection(title: monitor.system.chip) {
-                ValueRow(label: "GPU cores", value: monitor.system.gpuCores.map { "\($0)" } ?? "unknown")
-                ValueRow(label: "Thermal state", value: "\(monitor.snapshot.thermal == .nominal ? "Nominal" : "Throttling")")
-            }
+            HardwareSection(system: monitor.system)
         }
+    }
+}
+
+// MARK: - Hardware
+
+/// Static inventory of the machine's resources, shared by the CPU, GPU and Memory dropdowns.
+struct HardwareSection: View {
+    let system: SystemInfo
+    var body: some View {
+        DropdownSection(title: "Hardware") {
+            ValueRow(label: "Chip", value: system.chip)
+            ValueRow(label: "CPU cores", value: cpuCoresText)
+            ValueRow(label: "GPU cores", value: system.gpuCores.map { "\($0)" } ?? "unknown")
+            ValueRow(label: "Memory", value: Fmt.bytes(system.totalMemory, decimals: 0))
+            ValueRow(label: "System", value: system.osVersion, dim: true)
+        }
+    }
+
+    private var cpuCoresText: String {
+        guard system.efficiencyCores > 0 else { return "\(system.logicalCPUs)" }
+        return "\(system.logicalCPUs) (\(system.performanceCores)P + \(system.efficiencyCores)E)"
     }
 }
 
@@ -205,6 +225,7 @@ struct MemoryDropdown: View {
                 ValueRow(label: "Page Ins", value: Fmt.rate(m.pageInsPerSec))
                 ValueRow(label: "Page Outs", value: Fmt.rate(m.pageOutsPerSec))
             }
+            HardwareSection(system: monitor.system)
         }
     }
 }
