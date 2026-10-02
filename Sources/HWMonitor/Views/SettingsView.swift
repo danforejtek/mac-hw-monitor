@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.menuGraphs) private var menuGraphs = true
     @AppStorage(SettingsKey.menuLabels) private var menuLabels = true
     @AppStorage(SettingsKey.menuGraphWidth) private var graphWidth = 32.0
+    @AppStorage(SettingsKey.menuCombined) private var combined = false
     @AppStorage(SettingsKey.ollamaURL) private var ollamaURL = "http://127.0.0.1:11434"
     @StateObject private var launchAtLogin = UIState(SMAppService.mainApp.status == .enabled)
     @StateObject private var loginError = UIState<String?>(nil)
@@ -23,6 +24,10 @@ struct SettingsView: View {
                 }
             }
             Section("Menu bar items") {
+                Toggle("Combine into one menu bar item", isOn: $combined)
+                Text(combined ? "All enabled metrics share one item; the dropdown has a tab per metric."
+                              : "Each enabled metric gets its own item and dropdown.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("CPU", isOn: $showCPU)
                 Toggle("GPU", isOn: $showGPU)
                 Toggle("Memory", isOn: $showMemory)
@@ -59,6 +64,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 540)
+        .frame(width: 440, height: 600)
     }
 }

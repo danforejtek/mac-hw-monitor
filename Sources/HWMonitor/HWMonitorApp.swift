@@ -17,6 +17,7 @@ struct HWMonitorApp: App {
     @AppStorage(SettingsKey.showMemory) private var showMemory = true
     @AppStorage(SettingsKey.showDisk) private var showDisk = false
     @AppStorage(SettingsKey.showNetwork) private var showNetwork = true
+    @AppStorage(SettingsKey.menuCombined) private var combined = false
 
     init() {
         Self.handleCommandLine()
@@ -25,16 +26,21 @@ struct HWMonitorApp: App {
     }
 
     var body: some Scene {
+        // Either one combined item, or one item per enabled metric.
         // Scenes are added to the menu bar right-to-left in declaration order, so CPU ends up leftmost.
-        MenuBarExtra(isInserted: $showNetwork) { NetworkDropdown(monitor: monitor) } label: { label(.network) }
+        MenuBarExtra(isInserted: $combined) { CombinedDropdown(monitor: monitor) } label: {
+            if let img = monitor.combinedImage { Image(nsImage: img) } else { Image(systemName: "gauge.with.dots.needle.33percent") }
+        }
+        .menuBarExtraStyle(.window)
+        MenuBarExtra(isInserted: separate($showNetwork)) { NetworkDropdown(monitor: monitor) } label: { label(.network) }
             .menuBarExtraStyle(.window)
-        MenuBarExtra(isInserted: $showDisk) { DiskDropdown(monitor: monitor) } label: { label(.disk) }
+        MenuBarExtra(isInserted: separate($showDisk)) { DiskDropdown(monitor: monitor) } label: { label(.disk) }
             .menuBarExtraStyle(.window)
-        MenuBarExtra(isInserted: $showMemory) { MemoryDropdown(monitor: monitor) } label: { label(.memory) }
+        MenuBarExtra(isInserted: separate($showMemory)) { MemoryDropdown(monitor: monitor) } label: { label(.memory) }
             .menuBarExtraStyle(.window)
-        MenuBarExtra(isInserted: $showGPU) { GPUDropdown(monitor: monitor) } label: { label(.gpu) }
+        MenuBarExtra(isInserted: separate($showGPU)) { GPUDropdown(monitor: monitor) } label: { label(.gpu) }
             .menuBarExtraStyle(.window)
-        MenuBarExtra(isInserted: $showCPU) { CPUDropdown(monitor: monitor) } label: { label(.cpu) }
+        MenuBarExtra(isInserted: separate($showCPU)) { CPUDropdown(monitor: monitor) } label: { label(.cpu) }
             .menuBarExtraStyle(.window)
 
         Window("History", id: "history") {
@@ -74,6 +80,11 @@ struct HWMonitorApp: App {
             print("failed: \(error.localizedDescription) (status: \(describe(service.status)))")
             exit(1)
         }
+    }
+
+    /// A per-metric item is inserted only when enabled and not in combined mode.
+    private func separate(_ enabled: Binding<Bool>) -> Binding<Bool> {
+        Binding(get: { enabled.wrappedValue && !combined }, set: { enabled.wrappedValue = $0 })
     }
 
     @ViewBuilder

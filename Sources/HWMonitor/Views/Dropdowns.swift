@@ -270,3 +270,38 @@ struct NetworkDropdown: View {
         }
     }
 }
+
+// MARK: - Combined
+
+/// Single-item mode: a metric picker on top, then that metric's regular dropdown.
+struct CombinedDropdown: View {
+    @ObservedObject var monitor: Monitor
+    @AppStorage(SettingsKey.combinedMetric) private var selectedRaw = Metric.cpu.rawValue
+
+    private var available: [Metric] {
+        let on = Metric.allCases.filter(\.enabled)
+        return on.isEmpty ? Metric.allCases : on
+    }
+    private var selected: Metric {
+        let m = Metric(rawValue: selectedRaw) ?? .cpu
+        return available.contains(m) ? m : available[0]
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Metric", selection: Binding(get: { selected.rawValue }, set: { selectedRaw = $0 })) {
+                ForEach(available) { m in Text(m.title).tag(m.rawValue) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 2)
+            switch selected {
+            case .cpu: CPUDropdown(monitor: monitor)
+            case .gpu: GPUDropdown(monitor: monitor)
+            case .memory: MemoryDropdown(monitor: monitor)
+            case .disk: DiskDropdown(monitor: monitor)
+            case .network: NetworkDropdown(monitor: monitor)
+            }
+        }
+        .frame(width: 400)
+    }
+}

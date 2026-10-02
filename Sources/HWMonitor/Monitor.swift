@@ -26,6 +26,7 @@ final class Monitor: ObservableObject {
     private(set) var topByMemory: [ProcessSample] = []
     private(set) var ollama = OllamaStatus()
     @Published private(set) var menuImages: [Metric: NSImage] = [:]
+    @Published private(set) var combinedImage: NSImage?
     /// Metric shown in the history window.
     @Published var historyMetric: Metric = .cpu
 
@@ -144,18 +145,22 @@ final class Monitor: ObservableObject {
             let m = max(v.max() ?? 0, 1)
             return v.map { $0 / m }
         }
+        let segments: [Metric: MenuBarImage.Segment] = [
+            .cpu: .init(title: "CPU", value: String(format: "%.0f%%", snapshot.cpu.total),
+                        series: [(pct(.cpuUser), .systemBlue), (pct(.cpuSystem), .systemRed)], stacked: true),
+            .gpu: .init(title: "GPU", value: String(format: "%.0f%%", snapshot.gpu.device), series: [(pct(.gpu), .systemGreen)]),
+            .memory: .init(title: "MEM", value: String(format: "%.0f%%", snapshot.memory.usedPercent), series: [(pct(.memUsed), .systemPurple)]),
+            .disk: .init(title: "DISK", lines: ["R " + Fmt.rate(snapshot.disk.readPerSec), "W " + Fmt.rate(snapshot.disk.writePerSec)],
+                         series: [(scaled(.diskRead), .systemCyan), (scaled(.diskWrite), .systemOrange)]),
+            .network: .init(title: "NET", lines: ["\u{2193} " + Fmt.rate(snapshot.network.inPerSec), "\u{2191} " + Fmt.rate(snapshot.network.outPerSec)],
+                            series: [(scaled(.netIn), .systemMint), (scaled(.netOut), .systemPink)]),
+        ]
         var images: [Metric: NSImage] = [:]
-        images[.cpu] = MenuBarImage.make(title: "CPU", value: String(format: "%.0f%%", snapshot.cpu.total),
-                                         series: [(pct(.cpuUser), .systemBlue), (pct(.cpuSystem), .systemRed)], stacked: true,
-                                         graphs: graphs, labels: labels)
-        images[.gpu] = MenuBarImage.make(title: "GPU", value: String(format: "%.0f%%", snapshot.gpu.device),
-                                         series: [(pct(.gpu), .systemGreen)], stacked: false, graphs: graphs, labels: labels)
-        images[.memory] = MenuBarImage.make(title: "MEM", value: String(format: "%.0f%%", snapshot.memory.usedPercent),
-                                            series: [(pct(.memUsed), .systemPurple)], stacked: false, graphs: graphs, labels: labels)
-        images[.disk] = MenuBarImage.make(title: "DISK", lines: ["R " + Fmt.rate(snapshot.disk.readPerSec), "W " + Fmt.rate(snapshot.disk.writePerSec)],
-                                          series: [(scaled(.diskRead), .systemCyan), (scaled(.diskWrite), .systemOrange)], graphs: graphs, labels: labels)
-        images[.network] = MenuBarImage.make(title: "NET", lines: ["\u{2193} " + Fmt.rate(snapshot.network.inPerSec), "\u{2191} " + Fmt.rate(snapshot.network.outPerSec)],
-                                             series: [(scaled(.netIn), .systemMint), (scaled(.netOut), .systemPink)], graphs: graphs, labels: labels)
+        for (metric, seg) in segments { images[metric] = MenuBarImage.make([seg], graphs: graphs, labels: labels) }
         menuImages = images
+        if d.bool(forKey: SettingsKey.menuCombined) {
+            let enabled = Metric.allCases.filter(\.enabled).compactMap { segments[$0] }
+            combinedImage = MenuBarImage.make(enabled, graphs: graphs, labels: labels)
+        }
     }
 }

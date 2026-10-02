@@ -1,28 +1,35 @@
 import AppKit
 
-/// Draws a status-item image with plain AppKit. A drawing-handler `NSImage` is cheap and
+/// Draws status-item images with plain AppKit. A drawing-handler `NSImage` is cheap and
 /// appearance-aware: `labelColor` resolves against the menu bar's light/dark appearance at draw time.
+/// One `Segment` per metric; the combined item simply draws several segments in a row.
 enum MenuBarImage {
+    struct Segment {
+        var title: String
+        var value: String? = nil        // single value under the title (percent items)
+        var lines: [String] = []        // two small lines instead (throughput items)
+        var series: [([Double], NSColor)]
+        var stacked = false
+    }
+
     static let height: CGFloat = 18
+    private static let segmentGap: CGFloat = 7
+    private static let titleFont = NSFont.systemFont(ofSize: 7, weight: .semibold)
+    private static let valueFont = NSFont.monospacedDigitSystemFont(ofSize: 9.5, weight: .semibold)
+    private static let smallFont = NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .medium)
+
     private static var sparkWidth: CGFloat {
         CGFloat(max(16, min(80, UserDefaults.standard.double(forKey: SettingsKey.menuGraphWidth))))
     }
 
-    /// Percentage style item: small title above a value, optional (stacked) sparkline.
-    static func make(title: String, value: String, series: [([Double], NSColor)], stacked: Bool, graphs: Bool, labels: Bool) -> NSImage {
-        let textWidth: CGFloat = labels ? 26 : 0
-        let width = (graphs ? sparkWidth + (labels ? 3 : 0) : 0) + textWidth + 4
-        let image = NSImage(size: NSSize(width: max(width, 8), height: height), flipped: false) { _ in
-            var x: CGFloat = 2
-            if graphs {
-                drawSparkline(series, stacked: stacked, in: NSRect(x: x, y: 2, width: sparkWidth, height: 14))
-                x += sparkWidth + 3
-            }
-            if labels {
-                (title as NSString).draw(at: NSPoint(x: x, y: 9.5), withAttributes:
-                    [.font: NSFont.systemFont(ofSize: 7, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor])
-                (value as NSString).draw(at: NSPoint(x: x, y: 0.5), withAttributes:
-                    [.font: NSFont.monospacedDigitSystemFont(ofSize: 9.5, weight: .semibold), .foregroundColor: NSColor.labelColor])
+    static func make(_ segments: [Segment], graphs: Bool, labels: Bool) -> NSImage {
+        let widths = segments.map { segmentWidth($0, graphs: graphs, labels: labels) }
+        let total = widths.reduce(0, +) + segmentGap * CGFloat(max(segments.count - 1, 0)) + 2
+        let image = NSImage(size: NSSize(width: max(total, 8), height: height), flipped: false) { _ in
+            var x: CGFloat = 1
+            for (seg, w) in zip(segments, widths) {
+                draw(seg, at: x, graphs: graphs, labels: labels)
+                x += w + segmentGap
             }
             return true
         }
@@ -30,30 +37,38 @@ enum MenuBarImage {
         return image
     }
 
-    /// Throughput style item: two small right-aligned lines, optional two-line sparkline.
-    static func make(title: String, lines: [String], series: [([Double], NSColor)], graphs: Bool, labels: Bool) -> NSImage {
-        let textWidth: CGFloat = labels ? 58 : 0
-        let width = (graphs ? sparkWidth + (labels ? 3 : 0) : 0) + textWidth + 4
-        let image = NSImage(size: NSSize(width: max(width, 8), height: height), flipped: false) { _ in
-            var x: CGFloat = 2
-            if graphs {
-                drawSparkline(series, stacked: false, in: NSRect(x: x, y: 2, width: sparkWidth, height: 14))
-                x += sparkWidth + 3
-            }
-            if labels {
-                let style = NSMutableParagraphStyle(); style.alignment = .right
-                let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .medium),
-                                                            .foregroundColor: NSColor.labelColor, .paragraphStyle: style]
-                var y: CGFloat = 8.5
-                for line in lines.prefix(2) {
-                    (line as NSString).draw(in: NSRect(x: x, y: y, width: textWidth, height: 10), withAttributes: attrs)
-                    y -= 8.5
-                }
-            }
-            return true
+    private static func textWidth(_ seg: Segment) -> CGFloat {
+        if let value = seg.value {
+            return max((seg.title as NSString).size(withAttributes: [.font: titleFont]).width,
+                       (value as NSString).size(withAttributes: [.font: valueFont]).width).rounded(.up)
         }
-        image.isTemplate = false
-        return image
+        return (seg.lines.map { ($0 as NSString).size(withAttributes: [.font: smallFont]).width }.max() ?? 0).rounded(.up)
+    }
+
+    private static func segmentWidth(_ seg: Segment, graphs: Bool, labels: Bool) -> CGFloat {
+        (graphs ? sparkWidth : 0) + (graphs && labels ? 3 : 0) + (labels ? textWidth(seg) : 0)
+    }
+
+    private static func draw(_ seg: Segment, at start: CGFloat, graphs: Bool, labels: Bool) {
+        var x = start
+        if graphs {
+            drawSparkline(seg.series, stacked: seg.stacked, in: NSRect(x: x, y: 2, width: sparkWidth, height: 14))
+            x += sparkWidth + 3
+        }
+        guard labels else { return }
+        if let value = seg.value {
+            (seg.title as NSString).draw(at: NSPoint(x: x, y: 9.5), withAttributes: [.font: titleFont, .foregroundColor: NSColor.secondaryLabelColor])
+            (value as NSString).draw(at: NSPoint(x: x, y: 0.5), withAttributes: [.font: valueFont, .foregroundColor: NSColor.labelColor])
+        } else {
+            let w = textWidth(seg)
+            let style = NSMutableParagraphStyle(); style.alignment = .right
+            let attrs: [NSAttributedString.Key: Any] = [.font: smallFont, .foregroundColor: NSColor.labelColor, .paragraphStyle: style]
+            var y: CGFloat = 8.5
+            for line in seg.lines.prefix(2) {
+                (line as NSString).draw(in: NSRect(x: x, y: y, width: w, height: 10), withAttributes: attrs)
+                y -= 8.5
+            }
+        }
     }
 
     private static func drawSparkline(_ series: [([Double], NSColor)], stacked: Bool, in rect: NSRect) {
