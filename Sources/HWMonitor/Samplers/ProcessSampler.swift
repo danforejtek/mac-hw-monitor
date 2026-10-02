@@ -69,6 +69,17 @@ final class ProcessSampler {
         if proc_name(pid, &buf, UInt32(buf.count)) > 0 { name = String(cString: buf) }
         if name.isEmpty { name = (path as NSString).lastPathComponent }
         if name.isEmpty { name = "pid \(pid)" }
+        if name.hasPrefix("com.apple.Virtualization") {
+            // A Virtualization.framework VM (Docker Desktop, OrbStack, UTM, ...): name it after its owner.
+            var info = proc_bsdinfo()
+            if proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) > 0, info.pbi_ppid > 1 {
+                let parent = identify(pid_t(info.pbi_ppid))
+                name = "\(parent.name) (VM)"
+                if parent.path.contains(".app/") { path = parent.path }
+            } else {
+                name = "Virtual machine"
+            }
+        }
         return (name, path)
     }
 }

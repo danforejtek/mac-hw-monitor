@@ -280,7 +280,7 @@ struct NetworkDropdown: View {
 struct CombinedDropdown: View {
     @ObservedObject var monitor: Monitor
     @AppStorage(SettingsKey.combinedMetric) private var selectedRaw = Metric.cpu.rawValue
-    @StateObject private var window = UIState<NSWindow?>(nil)
+    @StateObject private var window = WindowBox()
 
     private var selected: Metric { Metric(rawValue: selectedRaw) ?? .cpu }
 
@@ -302,7 +302,7 @@ struct CombinedDropdown: View {
         .frame(width: 400)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(WindowAccessor { window.value = $0 })
+        .background(WindowAccessor { window.window = $0 })
         .background(GeometryReader { geo in
             // The menu bar window keeps the size it opened with, so the content's natural
             // height is measured here and the window is fitted to it.
@@ -312,7 +312,7 @@ struct CombinedDropdown: View {
     }
 
     private func fitWindow(to height: CGFloat) {
-        guard let w = window.value, height > 0 else { return }
+        guard let w = window.window, height > 0 else { return }
         let current = w.contentView?.frame.height ?? w.frame.height
         guard abs(height - current) > 0.5 else { return }
         var frame = w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: 400, height: height))
@@ -320,6 +320,12 @@ struct CombinedDropdown: View {
         frame.origin.y = w.frame.maxY - frame.height
         w.setFrame(frame, display: true)
     }
+}
+
+/// Holds the hosting window without publishing changes: a published property here would
+/// re-render the view on every update and spin the CPU at 100%.
+final class WindowBox: ObservableObject {
+    weak var window: NSWindow?
 }
 
 private struct ContentHeightKey: PreferenceKey {
