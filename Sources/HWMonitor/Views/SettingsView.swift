@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.showNetwork) private var showNetwork = true
     @AppStorage(SettingsKey.menuGraphs) private var menuGraphs = true
     @AppStorage(SettingsKey.menuLabels) private var menuLabels = true
+    @AppStorage(SettingsKey.menuGraphWidth) private var graphWidth = 32.0
     @AppStorage(SettingsKey.ollamaURL) private var ollamaURL = "http://127.0.0.1:11434"
     @StateObject private var launchAtLogin = UIState(SMAppService.mainApp.status == .enabled)
     @StateObject private var loginError = UIState<String?>(nil)
@@ -29,6 +30,14 @@ struct SettingsView: View {
                 Toggle("Network", isOn: $showNetwork)
                 Toggle("Show graphs", isOn: $menuGraphs)
                 Toggle("Show labels and values", isOn: $menuLabels)
+                HStack {
+                    Text("Graph width")
+                    Slider(value: $graphWidth, in: 16...80, step: 4)
+                    Text("\(Int(graphWidth)) pt").monospacedDigit().foregroundStyle(.secondary).frame(width: 44, alignment: .trailing)
+                }
+                .disabled(!menuGraphs)
+                Text("macOS hides status items that don't fit beside the active app's menus. Narrower items or fewer of them help.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Local LLM") {
                 TextField("Ollama URL", text: $ollamaURL)
@@ -50,6 +59,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 470)
+        .frame(width: 440, height: 540)
     }
 }

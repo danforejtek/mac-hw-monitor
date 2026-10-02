@@ -9,6 +9,7 @@ enum SettingsKey {
     static let showNetwork = "menuShowNetwork"
     static let menuGraphs = "menuGraphs"
     static let menuLabels = "menuLabels"
+    static let menuGraphWidth = "menuGraphWidth"      // points
     static let ollamaURL = "ollamaURL"
     static let historyRange = "historyRange"
 
@@ -22,6 +23,7 @@ enum SettingsKey {
             showNetwork: true,
             menuGraphs: true,
             menuLabels: true,
+            menuGraphWidth: 32.0,
             ollamaURL: "http://127.0.0.1:11434",
             historyRange: HistoryRange.hour.rawValue,
         ])

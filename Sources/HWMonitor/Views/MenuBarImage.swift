@@ -4,7 +4,9 @@ import AppKit
 /// appearance-aware: `labelColor` resolves against the menu bar's light/dark appearance at draw time.
 enum MenuBarImage {
     static let height: CGFloat = 18
-    private static let sparkWidth: CGFloat = 32
+    private static var sparkWidth: CGFloat {
+        CGFloat(max(16, min(80, UserDefaults.standard.double(forKey: SettingsKey.menuGraphWidth))))
+    }
 
     /// Percentage style item: small title above a value, optional (stacked) sparkline.
     static func make(title: String, value: String, series: [([Double], NSColor)], stacked: Bool, graphs: Bool, labels: Bool) -> NSImage {
