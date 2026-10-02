@@ -11,7 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct HWMonitorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var monitor: Monitor
+    /// Not observed: the app body only needs the menu bar images, and observing `Monitor`
+    /// would re-evaluate every scene whenever chart data changes.
+    private let monitor: Monitor
+    @StateObject private var menuBar: MenuBarModel
     @AppStorage(SettingsKey.showCPU) private var showCPU = true
     @AppStorage(SettingsKey.showGPU) private var showGPU = true
     @AppStorage(SettingsKey.showMemory) private var showMemory = true
@@ -22,14 +25,16 @@ struct HWMonitorApp: App {
     init() {
         Self.handleCommandLine()
         SettingsKey.registerDefaults()
-        _monitor = StateObject(wrappedValue: Monitor.shared)
+        let m = Monitor.shared
+        monitor = m
+        _menuBar = StateObject(wrappedValue: m.menuBar)
     }
 
     var body: some Scene {
         // Either one combined item, or one item per enabled metric.
         // Scenes are added to the menu bar right-to-left in declaration order, so CPU ends up leftmost.
         MenuBarExtra(isInserted: $combined) { CombinedDropdown(monitor: monitor) } label: {
-            if let img = monitor.combinedImage { Image(nsImage: img) } else { Image(systemName: "gauge.with.dots.needle.33percent") }
+            if let img = menuBar.combined { Image(nsImage: img) } else { Image(systemName: "gauge.with.dots.needle.33percent") }
         }
         .menuBarExtraStyle(.window)
         MenuBarExtra(isInserted: separate($showNetwork)) { NetworkDropdown(monitor: monitor) } label: { label(.network) }
@@ -91,7 +96,7 @@ struct HWMonitorApp: App {
 
     @ViewBuilder
     private func label(_ metric: Metric) -> some View {
-        if let img = monitor.menuImages[metric] {
+        if let img = menuBar.images[metric] {
             Image(nsImage: img)
         } else {
             Image(systemName: metric.symbol)

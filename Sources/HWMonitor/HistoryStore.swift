@@ -102,9 +102,8 @@ final class HistoryStore {
     init() { load() }
 
     func add(_ key: Key, _ value: Double, at date: Date = Date()) {
-        var s = series[key.rawValue] ?? MetricSeries()
-        s.add(value, at: date.timeIntervalSince1970)
-        series[key.rawValue] = s
+        // Mutated in place: copying the series out and back would duplicate all its tiers each tick.
+        series[key.rawValue, default: MetricSeries()].add(value, at: date.timeIntervalSince1970)
     }
 
     /// Points for a key over a range, read from the matching tier.
